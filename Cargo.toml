@@ -1,0 +1,24 @@
+[workspace]
+resolver = "2"
+members = [
+    "webclaw-rustls/rustls",
+    "webclaw-h2",
+    "webclaw-http",
+    "bench",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/0xMassi/webclaw-tls"
+
+# All fingerprinting-critical crates are LOCAL forks. No external git deps.
+# This is the only way to guarantee the patch chain works:
+# webclaw-http → webclaw-reqwest → webclaw-hyper → webclaw-h2 → webclaw-rustls
+[patch.crates-io]
+rustls = { path = "webclaw-rustls/rustls" }
+h2 = { path = "webclaw-h2" }
+hyper = { path = "webclaw-hyper" }
+hyper-util = { path = "webclaw-hyper-util" }
+reqwest = { path = "webclaw-reqwest" }

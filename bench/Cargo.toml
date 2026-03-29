@@ -1,0 +1,10 @@
+[package]
+name = "webclaw-tls-bench"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+webclaw-http = { path = "../webclaw-http", features = ["http3"] }
+tokio = { version = "1", features = ["full"] }
+serde_json = "1"

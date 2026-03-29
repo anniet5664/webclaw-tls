@@ -1,0 +1,34 @@
+[package]
+name = "webclaw-http"
+description = "HTTP client with browser TLS + HTTP/2 fingerprinting, header ordering, bandwidth tracking"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+default = ["cookies", "gzip", "brotli", "zstd"]
+cookies = ["reqwest/cookies"]
+gzip = ["reqwest/gzip"]
+brotli = ["reqwest/brotli"]
+zstd = ["reqwest/zstd"]
+http3 = ["reqwest/http3"]
+
+[dependencies]
+reqwest = { version = "0.13", default-features = false, features = [
+    "rustls", "http2", "json",
+] }
+# Direct rustls access to build custom TLS config with browser_emulation
+rustls = { version = "0.23", default-features = false, features = [
+    "std", "tls12", "impersonate",
+] }
+webpki-roots = "1"
+rustls-native-certs = "0.8"
+h2 = "0.4"
+tokio = { version = "1", features = ["time"] }
+tracing = "0.1"
+url = "2"
+http = "1"
+bytes = "1"
+[dev-dependencies]
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }

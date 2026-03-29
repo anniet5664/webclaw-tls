@@ -1,0 +1,11 @@
+/target
+/upstream
+/primp-analysis
+*.DS_Store
+*.orig
+*.rej
+webclaw-rustls/test-ca/
+webclaw-rustls/rustls-test/
+webclaw-rustls/rustls-provider-test/
+webclaw-reqwest/tests/support/*.pem
+webclaw-reqwest/tests/support/*.key
