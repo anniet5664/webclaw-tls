@@ -2,6 +2,16 @@
 
 All notable changes to webclaw-tls will be documented in this file.
 
+## [0.1.2] - 2026-03-30
+
+### Fixed
+- **HTTP header wire order** — `accept` and `user-agent` were at positions 4-5 instead of 8-9. Caused by reqwest pre-inserting `accept: */*` at position 0 in `ClientBuilder::new()`, pinning it ahead of `sec-ch-ua` headers. Fixed by replacing the header map instead of merging, and moving `user-agent` into each profile's `default_headers` at the correct wire position.
+- **HTTP/2 PRIORITY flag missing in HEADERS frame** — Real Chrome sends HEADERS with PRIORITY flag (weight=256, dep=0, exclusive). Added `h2_headers_priority` field to `BrowserProfile`, wired through reqwest → hyper → h2. Chrome/Edge/Safari profiles now include PRIORITY; Firefox correctly omits it (deprecated).
+
+### Changed
+- `reqwest::ClientBuilder::default_headers()` now replaces the entire header map instead of merging into the pre-existing one, preserving caller's insertion order for HTTP fingerprinting.
+- Removed `.user_agent()` call from client builder — UA is now set via `default_headers` at the correct position per browser profile.
+
 ## [0.1.1] - 2026-03-30
 
 ### Added
