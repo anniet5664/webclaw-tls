@@ -20,16 +20,18 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Format check
-        run: cargo fmt -p webclaw-http -p webclaw-tls-bench --check
+        run: |
+          cd webclaw-http && cargo fmt --check
+          cd ../bench && cargo fmt --check
 
-      - name: Clippy (webclaw-http)
-        run: cargo clippy -p webclaw-http -- -D warnings
+      - name: Clippy
+        run: cd webclaw-http && cargo clippy -- -D warnings
 
       - name: Unit tests
-        run: cargo test -p webclaw-http --lib
+        run: cd webclaw-http && cargo test --lib
 
-      - name: Hermetic tests (webclaw-http)
-        run: cargo test -p webclaw-http --test unit
+      - name: Hermetic tests
+        run: cd webclaw-http && cargo test --test unit
 
   integration:
     name: Integration Tests (network)
@@ -42,10 +44,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Fingerprint tests
-        run: cargo test -p webclaw-http --test fingerprint
+        run: cd webclaw-http && cargo test --test fingerprint
 
       - name: HTTP method tests
-        run: cargo test -p webclaw-http --test http_methods
+        run: cd webclaw-http && cargo test --test http_methods
 
   sync-downstream:
     name: Sync to webclaw core
