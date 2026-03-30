@@ -47,6 +47,10 @@ pub struct BrowserProfile {
     pub settings_order: &'static [H2Setting],
     /// HTTP/2 pseudo-header wire order.
     pub pseudo_order: &'static [PseudoHeader],
+    /// HTTP/2 PRIORITY in HEADERS frame: (weight, stream_dep, exclusive).
+    /// Chrome: Some((255, 0, true)) — weight 256, dep 0, exclusive.
+    /// None = no PRIORITY flag (detectable as non-browser).
+    pub h2_headers_priority: Option<(u8, u32, bool)>,
 }
 
 impl BrowserProfile {
@@ -99,7 +103,7 @@ pub fn chrome() -> BrowserProfile {
             ("sec-ch-ua-mobile", "?0"),
             ("sec-ch-ua-platform", "\"Windows\""),
             ("upgrade-insecure-requests", "1"),
-            // user-agent is set separately via reqwest builder
+            ("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"),
             ("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"),
             ("sec-fetch-site", "none"),
             ("sec-fetch-mode", "navigate"),
@@ -122,6 +126,8 @@ pub fn chrome() -> BrowserProfile {
             PseudoHeader::Scheme,
             PseudoHeader::Path,
         ],
+        // Chrome: weight=256 (255 on wire), dep=0, exclusive=true
+        h2_headers_priority: Some((255, 0, true)),
     }
 }
 
@@ -134,6 +140,7 @@ pub fn chrome_macos() -> BrowserProfile {
         ("sec-ch-ua-mobile", "?0"),
         ("sec-ch-ua-platform", "\"macOS\""),
         ("upgrade-insecure-requests", "1"),
+        ("user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"),
         ("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"),
         ("sec-fetch-site", "none"),
         ("sec-fetch-mode", "navigate"),
@@ -162,7 +169,10 @@ pub fn firefox() -> BrowserProfile {
         },
         h2_connection_window: 12517377,
         default_headers: &[
-            // user-agent set separately
+            (
+                "user-agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:146.0) Gecko/20100101 Firefox/146.0",
+            ),
             (
                 "accept",
                 "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -190,6 +200,8 @@ pub fn firefox() -> BrowserProfile {
             PseudoHeader::Authority,
             PseudoHeader::Scheme,
         ],
+        // Firefox deprecated PRIORITY frames in HTTP/2
+        h2_headers_priority: None,
     }
 }
 
@@ -213,7 +225,7 @@ pub fn safari() -> BrowserProfile {
             ("sec-fetch-dest", "document"),
             ("accept-language", "en-GB,en;q=0.9"),
             ("sec-fetch-mode", "navigate"),
-            // user-agent set separately
+            ("user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15"),
             ("accept-encoding", "gzip, deflate, br"),
             ("priority", "u=0, i"),
         ],
@@ -231,6 +243,8 @@ pub fn safari() -> BrowserProfile {
             PseudoHeader::Authority,
             PseudoHeader::Scheme,
         ],
+        // Safari uses its own priority scheme
+        h2_headers_priority: Some((255, 0, false)),
     }
 }
 
@@ -244,6 +258,7 @@ pub fn edge() -> BrowserProfile {
         ("sec-ch-ua-mobile", "?0"),
         ("sec-ch-ua-platform", "\"Windows\""),
         ("upgrade-insecure-requests", "1"),
+        ("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36 Edg/146.0.0.0"),
         ("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"),
         ("sec-fetch-site", "none"),
         ("sec-fetch-mode", "navigate"),

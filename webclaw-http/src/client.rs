@@ -261,7 +261,6 @@ impl ClientBuilder {
 
         let mut builder = reqwest::Client::builder()
             .rustls_config(tls_config)
-            .user_agent(profile.user_agent)
             .timeout(self.timeout)
             .cookie_store(self.cookie_store)
             .http2_header_table_size(h2.header_table_size)
@@ -269,7 +268,8 @@ impl ClientBuilder {
             .http2_initial_stream_window_size(h2.initial_window_size)
             .http2_initial_connection_window_size(profile.h2_connection_window)
             .http2_settings_order(settings_order)
-            .http2_headers_pseudo_order(pseudo_order);
+            .http2_headers_pseudo_order(pseudo_order)
+            .http2_headers_priority(profile.h2_headers_priority);
 
         if h2.max_header_list_size > 0 {
             builder = builder.http2_max_header_list_size(h2.max_header_list_size);

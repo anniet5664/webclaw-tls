@@ -1207,9 +1207,10 @@ impl ClientBuilder {
     /// # }
     /// ```
     pub fn default_headers(mut self, headers: HeaderMap) -> ClientBuilder {
-        for (key, value) in headers.iter() {
-            self.config.headers.insert(key, value.clone());
-        }
+        // Replace entirely to preserve caller's insertion order.
+        // The default `accept: */*` from ClientBuilder::new() would otherwise
+        // pin `accept` at position 0, breaking HTTP header order fingerprinting.
+        self.config.headers = headers;
         self
     }
 
