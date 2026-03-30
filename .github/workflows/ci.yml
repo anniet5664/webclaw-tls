@@ -20,16 +20,16 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Format check
-        run: find webclaw-http/src webclaw-http/tests bench/src -name '*.rs' | xargs rustfmt --check
+        run: cargo fmt -p webclaw-http -p webclaw-tls-bench --check
 
       - name: Clippy
-        run: cargo clippy -p webclaw-http --manifest-path webclaw-http/Cargo.toml -- -D warnings
+        run: cargo clippy -p webclaw-http -- -D warnings
 
       - name: Unit tests
-        run: cargo test --manifest-path webclaw-http/Cargo.toml --lib
+        run: cargo test -p webclaw-http --lib
 
       - name: Hermetic tests
-        run: cargo test --manifest-path webclaw-http/Cargo.toml --test unit
+        run: cargo test -p webclaw-http --test unit
 
   integration:
     name: Integration Tests (network)
@@ -42,10 +42,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Fingerprint tests
-        run: cargo test --manifest-path webclaw-http/Cargo.toml --test fingerprint
+        run: cargo test -p webclaw-http --test fingerprint
 
       - name: HTTP method tests
-        run: cargo test --manifest-path webclaw-http/Cargo.toml --test http_methods
+        run: cargo test -p webclaw-http --test http_methods
 
   sync-downstream:
     name: Sync to webclaw core
