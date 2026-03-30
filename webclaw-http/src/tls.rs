@@ -47,10 +47,8 @@ pub fn build_tls_config(profile: &BrowserProfile) -> Result<ClientConfig, Error>
         root_store.add(cert).ok();
     }
 
-    let is_chrome_based = profile.name.starts_with("Chrome")
-        || profile.name.starts_with("Edge")
-        || profile.name.starts_with("Opera");
-    let is_firefox = profile.name.starts_with("Firefox");
+    let is_chrome_based = profile.is_chromium();
+    let is_firefox = profile.is_firefox();
     let needs_ech = is_chrome_based || is_firefox;
 
     let mut config = if needs_ech {

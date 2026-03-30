@@ -133,35 +133,6 @@ fn format_bytes(bytes: u64) -> String {
     }
 }
 
-/// Estimate HTTP request size from its components.
-///
-/// Approximation — does not account for HTTP/2 HPACK compression or TLS record framing.
-pub(crate) fn estimate_request_size(
-    method: &str,
-    url: &url::Url,
-    headers: &[(String, String)],
-    body_len: usize,
-) -> u64 {
-    let mut size: usize = 0;
-
-    // HTTP/2 pseudo-headers: :method, :scheme, :authority, :path
-    size += method.len();
-    size += url.scheme().len();
-    size += url.host_str().map_or(0, str::len);
-    size += url.path().len();
-    size += url.query().map_or(0, |q| q.len() + 1); // +1 for '?'
-    size += 32; // frame overhead estimate
-
-    // Regular headers
-    for (name, value) in headers {
-        size += name.len() + value.len() + 4; // ": " + "\r\n"
-    }
-
-    size += body_len;
-
-    size as u64
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

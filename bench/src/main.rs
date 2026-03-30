@@ -3,17 +3,17 @@ use webclaw_http::Client;
 
 #[tokio::main]
 async fn main() {
-    let client = Client::builder()
-        .chrome()
-        .build()
-        .expect("build");
+    let client = Client::builder().chrome().build().expect("build");
 
     let sites = vec![
         ("HN", "https://news.ycombinator.com"),
         ("Wikipedia", "https://en.wikipedia.org/wiki/Web_scraping"),
         ("GitHub", "https://github.com/0xMassi/webclaw"),
         ("Stripe", "https://stripe.com"),
-        ("Cloudflare", "https://www.cloudflare.com/learning/what-is-cloudflare/"),
+        (
+            "Cloudflare",
+            "https://www.cloudflare.com/learning/what-is-cloudflare/",
+        ),
         ("Nike", "https://www.nike.com/w/mens-shoes-nik1zy7ok"),
         ("httpbin", "https://httpbin.org/get"),
     ];
@@ -22,7 +22,10 @@ async fn main() {
     client.get("https://httpbin.org/get").await.ok();
 
     println!("=== PROFILING: Cold vs Warm requests ===");
-    println!("{:20} {:>8} {:>8} {:>8} {:>8}", "Site", "Cold", "Warm1", "Warm2", "Warm3");
+    println!(
+        "{:20} {:>8} {:>8} {:>8} {:>8}",
+        "Site", "Cold", "Warm1", "Warm2", "Warm3"
+    );
     println!("{}", "-".repeat(60));
 
     let mut cold_total = 0u128;
@@ -69,8 +72,12 @@ async fn main() {
     }
     let total = start.elapsed();
     let avg = total.as_millis() / 20;
-    println!("  Total: {}ms, Avg: {}ms/req, Throughput: {:.1} req/s",
-        total.as_millis(), avg, 20.0 / total.as_secs_f64());
+    println!(
+        "  Total: {}ms, Avg: {}ms/req, Throughput: {:.1} req/s",
+        total.as_millis(),
+        avg,
+        20.0 / total.as_secs_f64()
+    );
 
     // Concurrent same-host burst
     println!("\n=== CONCURRENT BURST (20 parallel to httpbin) ===");
@@ -85,11 +92,16 @@ async fn main() {
     }
     let mut ok = 0;
     for h in handles {
-        if let Ok(Ok(200)) = h.await { ok += 1; }
+        if let Ok(Ok(200)) = h.await {
+            ok += 1;
+        }
     }
     let total = start.elapsed();
-    println!("  {ok}/20 OK in {}ms ({:.1} req/s)",
-        total.as_millis(), 20.0 / total.as_secs_f64());
+    println!(
+        "  {ok}/20 OK in {}ms ({:.1} req/s)",
+        total.as_millis(),
+        20.0 / total.as_secs_f64()
+    );
 
     // Minimal request overhead test (measure just our code, not network)
     println!("\n=== OVERHEAD TEST (localhost would be ideal, using fastest remote) ===");
@@ -100,6 +112,8 @@ async fn main() {
         times.push(start.elapsed().as_millis());
     }
     times.sort();
-    println!("  Min: {}ms, Median: {}ms, Max: {}ms",
-        times[0], times[5], times[9]);
+    println!(
+        "  Min: {}ms, Median: {}ms, Max: {}ms",
+        times[0], times[5], times[9]
+    );
 }

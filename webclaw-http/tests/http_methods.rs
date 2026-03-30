@@ -1,6 +1,6 @@
 //! Test all HTTP methods, cookies, redirects, error handling, and stress.
 
-use webclaw_http::{Client, BandwidthStats};
+use webclaw_http::{BandwidthStats, Client};
 
 fn build_client() -> Client {
     Client::builder()
@@ -23,16 +23,26 @@ async fn get_returns_200() {
 async fn post_sends_body() {
     let client = build_client();
     let body = b"hello=world";
-    let resp = client.post("https://httpbin.org/post", body).await.expect("POST");
+    let resp = client
+        .post("https://httpbin.org/post", body)
+        .await
+        .expect("POST");
     assert_eq!(resp.status(), 200);
     let text = resp.into_text();
-    assert!(text.contains("hello=world"), "POST body not echoed: {}", &text[..200.min(text.len())]);
+    assert!(
+        text.contains("hello=world"),
+        "POST body not echoed: {}",
+        &text[..200.min(text.len())]
+    );
 }
 
 #[tokio::test]
 async fn put_sends_body() {
     let client = build_client();
-    let resp = client.put("https://httpbin.org/put", b"data=123").await.expect("PUT");
+    let resp = client
+        .put("https://httpbin.org/put", b"data=123")
+        .await
+        .expect("PUT");
     assert_eq!(resp.status(), 200);
     let text = resp.into_text();
     assert!(text.contains("data=123"));
@@ -41,14 +51,20 @@ async fn put_sends_body() {
 #[tokio::test]
 async fn delete_works() {
     let client = build_client();
-    let resp = client.delete("https://httpbin.org/delete").await.expect("DELETE");
+    let resp = client
+        .delete("https://httpbin.org/delete")
+        .await
+        .expect("DELETE");
     assert_eq!(resp.status(), 200);
 }
 
 #[tokio::test]
 async fn patch_sends_body() {
     let client = build_client();
-    let resp = client.patch("https://httpbin.org/patch", b"patch=yes").await.expect("PATCH");
+    let resp = client
+        .patch("https://httpbin.org/patch", b"patch=yes")
+        .await
+        .expect("PATCH");
     assert_eq!(resp.status(), 200);
     let text = resp.into_text();
     assert!(text.contains("patch=yes"));
@@ -77,11 +93,15 @@ async fn cookies_persist_across_requests() {
     assert!(resp.is_success());
 
     // Second request: cookie should be sent back
-    let resp = client.get("https://httpbin.org/cookies").await.expect("get cookies");
+    let resp = client
+        .get("https://httpbin.org/cookies")
+        .await
+        .expect("get cookies");
     let text = resp.into_text();
     assert!(
         text.contains("webclaw123"),
-        "cookie not persisted: {}", &text[..200.min(text.len())]
+        "cookie not persisted: {}",
+        &text[..200.min(text.len())]
     );
 }
 
@@ -92,10 +112,19 @@ async fn multiple_cookies_tracked() {
     client.get("https://httpbin.org/cookies/set/a/1").await.ok();
     client.get("https://httpbin.org/cookies/set/b/2").await.ok();
 
-    let resp = client.get("https://httpbin.org/cookies").await.expect("cookies");
+    let resp = client
+        .get("https://httpbin.org/cookies")
+        .await
+        .expect("cookies");
     let text = resp.into_text();
-    assert!(text.contains("\"a\": \"1\"") || text.contains("\"a\":\"1\""), "cookie a missing");
-    assert!(text.contains("\"b\": \"2\"") || text.contains("\"b\":\"2\""), "cookie b missing");
+    assert!(
+        text.contains("\"a\": \"1\"") || text.contains("\"a\":\"1\""),
+        "cookie a missing"
+    );
+    assert!(
+        text.contains("\"b\": \"2\"") || text.contains("\"b\":\"2\""),
+        "cookie b missing"
+    );
 }
 
 // --- Redirects ---
@@ -109,7 +138,11 @@ async fn follows_redirects() {
         .await
         .expect("redirect");
     assert_eq!(resp.status(), 200);
-    assert!(resp.url().contains("/get"), "should follow redirect to /get, got {}", resp.url());
+    assert!(
+        resp.url().contains("/get"),
+        "should follow redirect to /get, got {}",
+        resp.url()
+    );
 }
 
 // --- Error Handling ---
@@ -136,14 +169,19 @@ async fn timeout_returns_error() {
 #[tokio::test]
 async fn dns_failure_returns_error() {
     let client = build_client();
-    let result = client.get("https://this-domain-does-not-exist-xyz123.com").await;
+    let result = client
+        .get("https://this-domain-does-not-exist-xyz123.com")
+        .await;
     assert!(result.is_err(), "nonexistent domain should error");
 }
 
 #[tokio::test]
 async fn handles_404() {
     let client = build_client();
-    let resp = client.get("https://httpbin.org/status/404").await.expect("404");
+    let resp = client
+        .get("https://httpbin.org/status/404")
+        .await
+        .expect("404");
     assert_eq!(resp.status(), 404);
     assert!(!resp.is_success());
 }
@@ -151,7 +189,10 @@ async fn handles_404() {
 #[tokio::test]
 async fn handles_500() {
     let client = build_client();
-    let resp = client.get("https://httpbin.org/status/500").await.expect("500");
+    let resp = client
+        .get("https://httpbin.org/status/500")
+        .await
+        .expect("500");
     assert_eq!(resp.status(), 500);
     assert!(!resp.is_success());
 }
@@ -163,7 +204,9 @@ async fn content_type_header() {
     let client = build_client();
     let resp = client.get("https://httpbin.org/json").await.expect("json");
     assert!(
-        resp.content_type().unwrap_or("").contains("application/json"),
+        resp.content_type()
+            .unwrap_or("")
+            .contains("application/json"),
         "expected JSON content type"
     );
 }
@@ -211,7 +254,11 @@ async fn bandwidth_shared_across_clones() {
     client.get("https://httpbin.org/get").await.ok();
     client2.get("https://httpbin.org/json").await.ok();
 
-    assert_eq!(stats.request_count(), 2, "clones should share bandwidth tracker");
+    assert_eq!(
+        stats.request_count(),
+        2,
+        "clones should share bandwidth tracker"
+    );
 }
 
 // --- Stress Test ---
@@ -238,5 +285,8 @@ async fn concurrent_requests() {
         }
     }
 
-    assert!(successes >= 8, "at least 8/10 concurrent requests should succeed, got {successes}");
+    assert!(
+        successes >= 8,
+        "at least 8/10 concurrent requests should succeed, got {successes}"
+    );
 }

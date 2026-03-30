@@ -32,3 +32,18 @@ pub use bandwidth::BandwidthStats;
 pub use client::{Client, ClientBuilder, Response};
 pub use error::Error;
 pub use header_order::HeaderOrder;
+pub use http::header::HeaderMap;
+
+// Compile-time assertions: these types must be Send + Sync for async usage.
+const _: () = {
+    fn _assert_send<T: Send>() {}
+    fn _assert_sync<T: Sync>() {}
+    fn _assertions() {
+        _assert_send::<Client>();
+        _assert_sync::<Client>();
+        _assert_send::<Response>();
+        _assert_sync::<Response>();
+        _assert_send::<Error>();
+        _assert_sync::<Error>();
+    }
+};

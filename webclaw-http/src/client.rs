@@ -3,27 +3,30 @@
 //! Configures reqwest with browser-specific TLS, HTTP/2, and header settings.
 //! No primp dependency — uses our rustls + h2 forks via [patch.crates-io].
 
-use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::time::{Duration, Instant};
 
 use crate::bandwidth::{BandwidthStats, RequestBandwidth};
 use crate::error::Error;
 use crate::header_order::HeaderOrder;
-use crate::profiles::{self, BrowserProfile};
+use crate::profiles::{self, BrowserProfile, H2Setting, PseudoHeader};
 
 /// HTTP client with browser TLS fingerprinting.
 ///
 /// Cheap to clone — clones share connection pool, cookie jar, bandwidth tracker.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Client {
     inner: reqwest::Client,
+    /// Browser header order metadata. Not applied per-request — ordering is baked
+    /// into `default_headers` insertion order (HTTP/1.1) and h2 pseudo-header config
+    /// (HTTP/2). Exposed for consumers who need to inspect or apply it themselves.
     header_order: HeaderOrder,
     bandwidth: BandwidthStats,
     profile_name: &'static str,
 }
 
 /// Builder for [`Client`].
+#[derive(Debug)]
 pub struct ClientBuilder {
     profile: Option<BrowserProfile>,
     timeout: Duration,
@@ -35,10 +38,11 @@ pub struct ClientBuilder {
 }
 
 /// HTTP response.
+#[derive(Debug)]
 pub struct Response {
     status: u16,
     url: String,
-    headers: HashMap<String, String>,
+    headers: http::header::HeaderMap,
     body: bytes::Bytes,
     elapsed: Duration,
     bw: RequestBandwidth,
@@ -99,15 +103,7 @@ impl Client {
         let status = resp.status().as_u16();
         let final_url = resp.url().as_str().to_string();
 
-        // Pre-allocate header map based on header count
-        let header_count = resp.headers().len();
-        let mut headers = HashMap::with_capacity(header_count);
-        for (k, v) in resp.headers().iter() {
-            headers.insert(
-                k.as_str().to_string(),
-                v.to_str().unwrap_or("").to_string(),
-            );
-        }
+        let headers = resp.headers().clone();
 
         // Single body read — Bytes is reference-counted, no extra copy
         let body_bytes = resp
@@ -117,7 +113,7 @@ impl Client {
 
         let elapsed = start.elapsed();
         let received = body_bytes.len() as u64;
-        let sent = (method.as_str().len() + url.len() + 200) as u64; // rough estimate without allocation
+        let sent = (method.as_str().len() + url.len() + body.map_or(0, |b| b.len()) + 200) as u64;
 
         let bw = RequestBandwidth { sent, received };
         self.bandwidth.record(bw);
@@ -198,13 +194,16 @@ impl ClientBuilder {
     }
 
     pub fn proxy(mut self, url: &str) -> Result<Self, Error> {
+        // Validate early so callers get the error at the call site, not in build()
+        reqwest::Proxy::all(url).map_err(|e| Error::Build(format!("invalid proxy: {e}")))?;
         self.proxy = Some(url.to_string());
         Ok(self)
     }
 
     #[must_use]
     pub fn default_header(mut self, name: &str, value: &str) -> Self {
-        self.extra_headers.push((name.to_string(), value.to_string()));
+        self.extra_headers
+            .push((name.to_string(), value.to_string()));
         self
     }
 
@@ -222,44 +221,46 @@ impl ClientBuilder {
 
     pub fn build(self) -> Result<Client, Error> {
         let profile = self.profile.unwrap_or_else(profiles::chrome);
-        let header_order = self.header_order_override.unwrap_or(profile.header_order.clone());
+        let header_order = self
+            .header_order_override
+            .unwrap_or(profile.header_order.clone());
 
-        let tls_config: Option<reqwest::rustls::ClientConfig> =
-            Some(crate::tls::build_tls_config(&profile)?);
+        let tls_config = crate::tls::build_tls_config(&profile)?;
 
         let h2 = &profile.h2_settings;
 
         use h2::frame::{PseudoId, PseudoOrder, SettingId, SettingsOrder};
 
-        let settings_order = SettingsOrder::builder()
-            .push(SettingId::HeaderTableSize)
-            .push(SettingId::EnablePush)
-            .push(SettingId::InitialWindowSize)
-            .push(SettingId::MaxHeaderListSize)
+        let settings_order = profile
+            .settings_order
+            .iter()
+            .fold(SettingsOrder::builder(), |b, s| {
+                b.push(match s {
+                    H2Setting::HeaderTableSize => SettingId::HeaderTableSize,
+                    H2Setting::EnablePush => SettingId::EnablePush,
+                    H2Setting::InitialWindowSize => SettingId::InitialWindowSize,
+                    H2Setting::MaxConcurrentStreams => SettingId::MaxConcurrentStreams,
+                    H2Setting::MaxHeaderListSize => SettingId::MaxHeaderListSize,
+                    H2Setting::MaxFrameSize => SettingId::MaxFrameSize,
+                })
+            })
             .build();
 
-        let is_chrome = profile.name.starts_with("Chrome")
-            || profile.name.starts_with("Edge")
-            || profile.name.starts_with("Opera");
-
-        let pseudo_order = if is_chrome {
-            PseudoOrder::builder()
-                .push(PseudoId::Method)
-                .push(PseudoId::Authority)
-                .push(PseudoId::Scheme)
-                .push(PseudoId::Path)
-                .build()
-        } else {
-            PseudoOrder::builder()
-                .push(PseudoId::Method)
-                .push(PseudoId::Path)
-                .push(PseudoId::Authority)
-                .push(PseudoId::Scheme)
-                .build()
-        };
+        let pseudo_order = profile
+            .pseudo_order
+            .iter()
+            .fold(PseudoOrder::builder(), |b, p| {
+                b.push(match p {
+                    PseudoHeader::Method => PseudoId::Method,
+                    PseudoHeader::Authority => PseudoId::Authority,
+                    PseudoHeader::Scheme => PseudoId::Scheme,
+                    PseudoHeader::Path => PseudoId::Path,
+                })
+            })
+            .build();
 
         let mut builder = reqwest::Client::builder()
-            .rustls_config(tls_config.unwrap())
+            .rustls_config(tls_config)
             .user_agent(profile.user_agent)
             .timeout(self.timeout)
             .cookie_store(self.cookie_store)
@@ -280,22 +281,22 @@ impl ClientBuilder {
             builder = builder.http2_max_frame_size(max);
         }
 
-        let mut header_map = reqwest::header::HeaderMap::with_capacity(profile.default_headers.len());
+        let mut header_map = reqwest::header::HeaderMap::with_capacity(
+            profile.default_headers.len() + self.extra_headers.len(),
+        );
         for (name, value) in profile.default_headers {
-            if let (Ok(n), Ok(v)) = (
-                reqwest::header::HeaderName::from_bytes(name.as_bytes()),
-                reqwest::header::HeaderValue::from_str(value),
-            ) {
-                header_map.insert(n, v);
-            }
+            let n = reqwest::header::HeaderName::from_bytes(name.as_bytes())
+                .map_err(|_| Error::Build(format!("invalid profile header: {name}")))?;
+            let v = reqwest::header::HeaderValue::from_str(value)
+                .map_err(|_| Error::Build(format!("invalid profile header value for: {name}")))?;
+            header_map.insert(n, v);
         }
         for (name, value) in &self.extra_headers {
-            if let (Ok(n), Ok(v)) = (
-                reqwest::header::HeaderName::from_bytes(name.as_bytes()),
-                reqwest::header::HeaderValue::from_str(value),
-            ) {
-                header_map.insert(n, v);
-            }
+            let n = reqwest::header::HeaderName::from_bytes(name.as_bytes())
+                .map_err(|_| Error::Build(format!("invalid header name: {name}")))?;
+            let v = reqwest::header::HeaderValue::from_str(value)
+                .map_err(|_| Error::Build(format!("invalid header value for: {name}")))?;
+            header_map.insert(n, v);
         }
         builder = builder.default_headers(header_map);
 
@@ -332,8 +333,9 @@ impl Response {
         &self.url
     }
 
+    /// Response headers. Use `header()` for convenient single-header lookup.
     #[must_use]
-    pub fn headers(&self) -> &HashMap<String, String> {
+    pub fn headers(&self) -> &http::header::HeaderMap {
         &self.headers
     }
 
@@ -355,6 +357,12 @@ impl Response {
         String::from_utf8_lossy(&self.body).into_owned()
     }
 
+    /// Consume the response and return the raw body bytes.
+    #[must_use]
+    pub fn into_bytes(self) -> bytes::Bytes {
+        self.body
+    }
+
     #[must_use]
     pub fn elapsed(&self) -> Duration {
         self.elapsed
@@ -372,7 +380,7 @@ impl Response {
 
     #[must_use]
     pub fn header(&self, name: &str) -> Option<&str> {
-        self.headers.get(&name.to_ascii_lowercase()).map(String::as_str)
+        self.headers.get(name)?.to_str().ok()
     }
 
     #[must_use]

@@ -8,6 +8,26 @@
 
 use crate::header_order::HeaderOrder;
 
+/// HTTP/2 SETTINGS identifier for frame ordering.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum H2Setting {
+    HeaderTableSize,
+    EnablePush,
+    InitialWindowSize,
+    MaxConcurrentStreams,
+    MaxHeaderListSize,
+    MaxFrameSize,
+}
+
+/// HTTP/2 pseudo-header for ordering.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PseudoHeader {
+    Method,
+    Authority,
+    Scheme,
+    Path,
+}
+
 /// Complete browser fingerprint profile.
 #[derive(Debug, Clone)]
 pub struct BrowserProfile {
@@ -23,6 +43,27 @@ pub struct BrowserProfile {
     pub default_headers: &'static [(&'static str, &'static str)],
     /// Header ordering for this browser.
     pub header_order: HeaderOrder,
+    /// HTTP/2 SETTINGS frame wire order.
+    pub settings_order: &'static [H2Setting],
+    /// HTTP/2 pseudo-header wire order.
+    pub pseudo_order: &'static [PseudoHeader],
+}
+
+impl BrowserProfile {
+    /// Whether this is a Chromium-based browser (Chrome, Edge, Opera).
+    #[must_use]
+    pub fn is_chromium(&self) -> bool {
+        matches!(
+            self.name.split('/').next(),
+            Some("Chrome" | "Edge" | "Opera")
+        )
+    }
+
+    /// Whether this is a Firefox browser.
+    #[must_use]
+    pub fn is_firefox(&self) -> bool {
+        self.name.starts_with("Firefox")
+    }
 }
 
 /// HTTP/2 SETTINGS frame configuration.
@@ -35,12 +76,6 @@ pub struct H2Settings {
     pub max_concurrent_streams: Option<u32>,
     pub max_frame_size: Option<u32>,
 }
-
-/// HTTP/2 pseudo-header order.
-/// Chrome: :method, :authority, :scheme, :path
-pub const CHROME_PSEUDO_ORDER: [&str; 4] = [":method", ":authority", ":scheme", ":path"];
-/// Firefox: :method, :path, :authority, :scheme
-pub const FIREFOX_PSEUDO_ORDER: [&str; 4] = [":method", ":path", ":authority", ":scheme"];
 
 /// Chrome 146 on Windows — captured from real Chrome via tls.peet.ws.
 pub fn chrome() -> BrowserProfile {
@@ -75,6 +110,18 @@ pub fn chrome() -> BrowserProfile {
             ("priority", "u=0, i"),
         ],
         header_order: HeaderOrder::chrome(),
+        settings_order: &[
+            H2Setting::HeaderTableSize,
+            H2Setting::EnablePush,
+            H2Setting::InitialWindowSize,
+            H2Setting::MaxHeaderListSize,
+        ],
+        pseudo_order: &[
+            PseudoHeader::Method,
+            PseudoHeader::Authority,
+            PseudoHeader::Scheme,
+            PseudoHeader::Path,
+        ],
     }
 }
 
@@ -131,6 +178,18 @@ pub fn firefox() -> BrowserProfile {
             ("te", "trailers"),
         ],
         header_order: HeaderOrder::firefox(),
+        settings_order: &[
+            H2Setting::HeaderTableSize,
+            H2Setting::EnablePush,
+            H2Setting::InitialWindowSize,
+            H2Setting::MaxHeaderListSize,
+        ],
+        pseudo_order: &[
+            PseudoHeader::Method,
+            PseudoHeader::Path,
+            PseudoHeader::Authority,
+            PseudoHeader::Scheme,
+        ],
     }
 }
 
@@ -159,6 +218,19 @@ pub fn safari() -> BrowserProfile {
             ("priority", "u=0, i"),
         ],
         header_order: HeaderOrder::safari(),
+        settings_order: &[
+            H2Setting::HeaderTableSize,
+            H2Setting::EnablePush,
+            H2Setting::InitialWindowSize,
+            H2Setting::MaxConcurrentStreams,
+            H2Setting::MaxFrameSize,
+        ],
+        pseudo_order: &[
+            PseudoHeader::Method,
+            PseudoHeader::Path,
+            PseudoHeader::Authority,
+            PseudoHeader::Scheme,
+        ],
     }
 }
 
@@ -222,5 +294,35 @@ mod tests {
         for p in [chrome(), firefox(), safari(), edge()] {
             assert!(p.default_headers.iter().any(|(k, _)| *k == "accept"));
         }
+    }
+
+    #[test]
+    fn is_chromium_detects_correctly() {
+        assert!(chrome().is_chromium());
+        assert!(chrome_macos().is_chromium());
+        assert!(edge().is_chromium());
+        assert!(!firefox().is_chromium());
+        assert!(!safari().is_chromium());
+    }
+
+    #[test]
+    fn is_firefox_detects_correctly() {
+        assert!(firefox().is_firefox());
+        assert!(!chrome().is_firefox());
+        assert!(!safari().is_firefox());
+    }
+
+    #[test]
+    fn chrome_and_firefox_have_different_pseudo_order() {
+        assert_ne!(chrome().pseudo_order, firefox().pseudo_order);
+    }
+
+    #[test]
+    fn safari_settings_include_concurrent_streams() {
+        let s = safari();
+        assert!(s.settings_order.contains(&H2Setting::MaxConcurrentStreams));
+        assert!(!chrome()
+            .settings_order
+            .contains(&H2Setting::MaxConcurrentStreams));
     }
 }
