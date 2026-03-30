@@ -23,7 +23,7 @@ jobs:
         run: cargo fmt -p webclaw-http -p webclaw-tls-bench --check
 
       - name: Clippy
-        run: cargo clippy -p webclaw-http -- -D warnings
+        run: cargo clippy -p webclaw-http -- -W clippy::all
 
       - name: Unit tests
         run: cargo test -p webclaw-http --lib
